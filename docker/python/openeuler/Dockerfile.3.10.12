@@ -1,0 +1,118 @@
+FROM openeuler/openeuler:20.03-lts-sp3 AS build
+
+ARG PYTHON_VERSION="3.10.12"
+ARG OPENSSL_VERSION="3.0.8"
+
+# https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tar.xz
+ADD [ "Python-${PYTHON_VERSION}.tar.xz", "/" ]
+# https://www.openssl.org/source/old/3.0/openssl-3.0.8.tar.gz 3.10.12的Python不支持 3.0.10 的 openssl
+ADD [ "openssl-${OPENSSL_VERSION}.tar.gz", "/" ]
+
+
+ENV LC_ALL="C"
+# openssl-devel \
+RUN set -eu; \
+    yum install -y gcc \
+                   make \
+                   perl \
+                   zlib-devel \
+                   zlib \
+                   bzip2-devel \
+                   ncurses-devel \
+                   sqlite-devel \
+                   readline-devel \
+                   tk-devel \
+                   gdbm-devel \
+                   xz-devel \
+                   libffi-devel \
+                   libuuid-devel \
+                   expat-devel \
+                   perl-IPC-Cmd \
+                   libnsl2-devel
+
+RUN set -eu; \
+        cd /openssl-${OPENSSL_VERSION}; \
+        ./config --prefix=/usr/local; \
+        make -j `nproc`; \
+        make install; \
+        make clean; \
+        echo "/usr/local/lib64">/etc/ld.so.conf.d/ld.local.conf; \
+        echo "/usr/local/lib">>/etc/ld.so.conf.d/ld.local.conf; \
+        ldconfig; \
+        cd /Python-${PYTHON_VERSION}; \
+        ./configure \
+        --enable-optimizations \
+        --with-lto \
+        --enable-shared \
+        --enable-ipv6 \
+        --enable-loadable-sqlite-extensions \
+        --with-ssl-default-suites=openssl \
+        --enable-option-checking=fatal \
+        --with-system-expat \
+        --with-openssl=/usr/local \
+        --prefix=/usr/local; \
+    make -j `nproc`; \
+    make install; \
+    make clean; \
+    ldconfig; \
+    yum clean all
+
+FROM openeuler/openeuler:20.03-lts-sp3 AS clean
+
+COPY \
+    --from=build /usr/local /usr/local
+
+ENV TZ="Asia/Shanghai" \
+        LANG="zh_CN.UTF-8" \
+        LC_ALL="C"
+
+RUN set -eu; \
+        yum install -y glibc-langpack-zh \
+            bc \
+            zlib-devel \
+            zlib \
+            bzip2-devel \
+            ncurses-devel \
+            sqlite-devel \
+            readline-devel \
+            tk-devel \
+            gdbm-devel \
+            xz-devel \
+            libffi-devel \
+            libuuid-devel \
+            expat-devel \
+            libnsl2-devel; \
+        yum clean all; \
+        ln -sf /usr/local/bin/python3.10 /usr/bin/python; \
+        ln -sf /usr/local/bin/pip3 /usr/bin/pip; \
+        echo "/usr/local/lib">/etc/ld.so.conf.d/ld.local.conf; \
+        echo "/usr/local/lib64">>/etc/ld.so.conf.d/ld.local.conf; \
+        ldconfig; \
+        python -m pip install --root-user-action=ignore --upgrade pip; \
+        pip config set global.index-url http://mirrors.aliyun.com/pypi/simple; \
+        python -c "import sysconfig; print(sysconfig.get_config_var('CONFIG_ARGS'))"; \
+        yum clean all
+
+FROM openeuler/openeuler:20.03-lts-sp3 AS final
+
+COPY \
+    --from=clean /usr /usr
+COPY \
+    --from=clean /etc /etc
+
+FROM scratch
+
+COPY \
+    --from=final / /
+
+LABEL \
+        AUTHOR="IVAN DU" \
+        DATE="2023-08-09" \
+        VERSION="1.0.0" \
+        PYTHON_VERSION="3.10.12"
+
+ENV TZ="Asia/Shanghai" \
+        LANG="zh_CN.UTF-8" \
+        LC_ALL="C"
+
+CMD [ "/bin/python3" ]

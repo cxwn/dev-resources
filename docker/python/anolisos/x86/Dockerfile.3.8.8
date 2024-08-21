@@ -1,0 +1,122 @@
+FROM openanolis/anolisos:8.6 as PYTHON
+
+ARG PYTHON_VERSION="3.8.8"
+ARG OPENSSL_VERSION="3.0.14"
+
+# https://www.python.org/ftp/python/3.8.8/Python-3.8.8.tar.xz
+ADD [ "Python-${PYTHON_VERSION}.tar.xz", "/" ]
+# https://www.openssl.org/source/openssl-3.0.14.tar.gz
+ADD [ "openssl-${OPENSSL_VERSION}.tar.gz", "/" ]
+
+ENV LC_ALL="C"
+
+RUN set -eu; \
+    yum install -y gcc \
+                   make \
+                   perl \
+                   zlib-devel \
+                   bzip2-devel \
+                   ncurses-devel \
+                   sqlite-devel \
+                   readline-devel \
+                   tk-devel \
+                   gdbm-devel \
+                   xz-devel \
+                   libffi-devel \
+                   uuid-devel \
+                   perl-IPC-Cmd \
+                   libnsl2-devel
+
+RUN set -eu; \
+    cd /openssl-${OPENSSL_VERSION}; \
+    ./config --prefix=/usr/local; \
+    make -j `nproc`; \
+    make install; \
+    make clean; \
+    echo "/usr/local/lib64">/etc/ld.so.conf.d/ld.local.conf; \
+    echo "/usr/local/lib">>/etc/ld.so.conf.d/ld.local.conf; \
+    ldconfig; \
+    cd /Python-${PYTHON_VERSION}; \
+    ./configure \
+        --enable-optimizations \
+        --with-lto \
+        --enable-shared \
+        --enable-ipv6 \
+        --enable-loadable-sqlite-extensions \
+        --with-ssl-default-suites=openssl \
+        --enable-option-checking=fatal \
+        --with-system-expat \
+        --with-openssl=/usr/local \
+        --prefix=/usr/local; \
+    make -j `nproc`; \
+    make install; \
+    make clean; \
+    ldconfig; \
+    yum clean all
+
+FROM openanolis/anolisos:8.6 as OS
+
+ARG PYTHON_VERSION="3.8.8"
+
+COPY \
+    --from=PYTHON /usr/local /usr/local
+
+ENV TZ="Asia/Shanghai" \
+    LANG="zh_CN.UTF-8" \
+    LC_ALL="C"
+
+RUN set -eu; \
+    yum install -y glibc-langpack-zh \
+                   zlib-devel \
+                   bzip2-devel \
+                   ncurses-devel \
+                   sqlite-devel \
+                   readline-devel \
+                   tk-devel \
+                   gdbm-devel \
+                   xz-devel \
+                   libffi-devel \
+                   uuid-devel \
+                   libnsl2-devel \
+                   git; \
+    yum clean all
+
+RUN set -eu; \
+    ln -sf /usr/local/bin/python3 /usr/bin/python3; \
+    ln -sf /usr/local/bin/python${PYTHON_VERSION} /usr/bin/python3; \
+    ln -sf /usr/local/bin/python3 /usr/bin/python; \
+    ln -sf /usr/local/bin/pip${PYTHON_VERSION} /usr/bin/pip3; \
+    echo "/usr/local/lib">/etc/ld.so.conf.d/ld.local.conf; \
+    echo "/usr/local/lib64">>/etc/ld.so.conf.d/ld.local.conf; \
+    ldconfig; \
+    python3 -m pip install --upgrade pip; \
+    python3 -c "import sysconfig; print(sysconfig.get_config_var('CONFIG_ARGS'))"; \
+    pip install boto3 httpx; \
+    pip cache purge; \
+    rm -rf /var/cache/yum/*; \
+    rm -rf /root/.cache; \
+    rm -rf /tmp/*
+
+FROM openanolis/anolisos:8.6 as FIN
+
+COPY \
+    --from=OS /usr /usr
+COPY \
+    --from=OS /etc /etc
+
+FROM scratch
+
+COPY \
+    --from=FIN / /
+
+LABEL \
+    AUTHOR="IVAN DU" \
+    DATE="2024-06-21" \
+    VERSION="1.0.0" \
+    PYTHON_VERSION="3.8.8"
+
+ENV TZ="Asia/Shanghai" \
+    LANG="zh_CN.UTF-8" \
+    LC_ALL="C"
+
+CMD [ "/usr/bin/python" ]
