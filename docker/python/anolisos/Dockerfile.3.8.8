@@ -90,6 +90,7 @@ RUN set -eu; \
     echo "/usr/local/lib64">>/etc/ld.so.conf.d/ld.local.conf; \
     ldconfig; \
     python3 -m pip install --upgrade pip; \
+    pip config set global.index-url http://mirrors.aliyun.com/pypi/simple; \
     python3 -c "import sysconfig; print(sysconfig.get_config_var('CONFIG_ARGS'))"; \
     pip cache purge; \
     rm -rf /var/cache/yum/*; \
