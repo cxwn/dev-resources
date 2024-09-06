@@ -1,9 +1,9 @@
 FROM openanolis/anolisos:8.6 as OS
 
-ENV TZ="Asia/Shanghai" \
-    LANG="zh_CN.UTF-8" \
-    LC_ALL="C"
-
+ENV LC_ALL="C" \
+    TZ="Asia/Shanghai" \
+    LANG="zh_CN.UTF-8"
+    
 RUN set -eu; \
     yum install -y python38; \
     yum clean all; \
@@ -27,6 +27,6 @@ LABEL \
     VERSION="1.0.0" \
     PYTHON_VERSION="3.8.17"
 
-ENV TZ="Asia/Shanghai" \
-    LANG="zh_CN.UTF-8" \
-    LC_ALL="C"
+ENV LC_ALL="C" \
+    TZ="Asia/Shanghai" \
+    LANG="zh_CN.UTF-8"
