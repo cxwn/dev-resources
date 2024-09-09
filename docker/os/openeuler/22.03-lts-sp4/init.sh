@@ -25,6 +25,7 @@ done
 if [ -n "$ARCH" ]; then
     cd "$ARCH"
     [ -d build ] && rm -rf build && mkdir build
+    [ ! -d build ] && mkdir build
     sha256sum -c openEuler-docker."$ARCH".tar.xz.sha256sum
     # shellcheck disable=SC2181
     if [ $? -ne 0 ]; then

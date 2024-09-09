@@ -1,9 +1,11 @@
+ARG TARGETARCH
+
 FROM \
-    openeuler:22.03-lts-sp4-x86_64
+    openeuler:22.03-lts-sp4-$TARGETARCH
 
 # python3 -m pip install --upgrade pip
 RUN set -exu; \
-    dnf -y install iproute iputils python3-pip; \
+    dnf -y install iproute iputils python3-pip tcpdump; \
     pip install 'httpx[cli]'; \
     pip cache purge; \
     yum clean all; \
