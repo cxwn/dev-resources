@@ -20,10 +20,10 @@ RUN set -eux; \
     java -version
 
 FROM \
-    openeuler:22.03-lts-sp4-aarch64
+    scratch
 
 COPY \
-    --from=0 /opt/jre-17 /opt/jre-17
+    --from=0 / /
 
 ENV LC_ALL="C" \
     TZ="Asia/Shanghai" \
